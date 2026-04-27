@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>IDG 工卡阅览器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+/* ==================== 全局 ==================== */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root {
+  --bg:#1a1c1e; --panel:#222428; --panel2:#2a2d31;
+  --border:#3a3d42; --text:#ddd; --text2:#aaa;
+  --accent:#4a9eda; --accent2:#ffd060;
+  --danger:#e05a5a; --success:#5aad7a;
+  --header-h:52px; --tab-h:40px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;}
+
+/* ==================== 顶部工具栏 ==================== */
+.toolbar{
+  height:var(--header-h);background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;z-index:50;
+}
+.toolbar-title{font-size:15px;font-weight:700;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.toolbar-doc{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.toolbar-btn{
+  background:none;border:1px solid var(--border);color:var(--text2);padding:5px 10px;
+  border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;transition:all .15s;
+}
+.toolbar-btn:hover{background:var(--panel2);color:var(--text);border-color:var(--accent);}
+.toolbar-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.toolbar-btn.primary:hover{background:#5aafef;}
+
+/* ==================== 模式切换 ==================== */
+.mode-bar{
+  display:flex;align-items:center;background:var(--panel2);border-radius:8px;padding:3px;gap:2px;
+}
+.mode-btn{
+  padding:5px 14px;border-radius:6px;border:none;background:none;cursor:pointer;
+  font-size:13px;color:var(--text2);transition:all .15s;white-space:nowrap;
+}
+.mode-btn.active{background:var(--accent);color:#fff;}
+
+/* ==================== 主布局 ==================== */
+.app{display:flex;height:calc(100vh - var(--header-h));overflow:hidden;}
+
+/* 左侧页导航 */
+.page-nav{
+  width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.nav-header{
+  padding:10px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);
+  background:var(--panel2);flex-shrink:0;display:flex;align-items:center;gap:6px;
+}
+.page-list{flex:1;overflow-y:auto;padding:6px;}
+.page-list::-webkit-scrollbar{width:4px;}
+.page-list::-webkit-scrollbar-thumb{background:#444;border-radius:2px;}
+.page-item{
+  padding:7px 12px;border-radius:5px;cursor:pointer;display:flex;align-items:center;
+  gap:8px;margin-bottom:2px;transition:background .1s;font-size:13px;color:var(--text);
+}
+.page-item:hover{background:var(--panel2);}
+.page-item.active{background:rgba(74,158,218,.2);color:var(--accent);border:1px solid rgba(74,158,218,.3);}
+.page-item.fig-page{color:var(--accent2);font-weight:600;}
+.page-num{font-size:11px;color:var(--text2);margin-left:auto;min-width:24px;text-align:right;}
+.page-item.fig-page .page-num{color:var(--accent2);}
+
+/* 右侧内容区 */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* 页码栏 */
+.page-bar{
+  height:var(--tab-h);background:var(--panel2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;
+}
+.page-bar input[type=number]{
+  width:52px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:5px;padding:4px 8px;font-size:13px;text-align:center;
+}
+.page-bar input[type=number]::-webkit-inner-spin-button,.page-bar input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+.page-bar-total{color:var(--text2);font-size:13px;}
+.page-zoom-group{display:flex;align-items:center;gap:4px;margin-left:auto;}
+.zoom-btn{
+  width:26px;height:26px;border:1px solid var(--border);background:none;color:var(--text2);
+  border-radius:5px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .1s;
+}
+.zoom-btn:hover{background:var(--panel);color:var(--text);border-color:var(--accent);}
+
+/* PDF 画布容器 */
+.pdf-scroll{
+  flex:1;overflow:auto;background:#2d2f33;padding:20px;display:flex;flex-direction:column;align-items:center;
+}
+.pdf-scroll::-webkit-scrollbar{width:6px;height:6px;}
+.pdf-scroll::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
+.pdf-scroll::-webkit-scrollbar-track{background:transparent;}
+#pdf-canvas-wrap{display:inline-block;box-shadow:0 4px 30px rgba(0,0,0,.6);position:relative;}
+#pdf-canvas-wrap canvas{display:block;}
+/* 页面加载动画 */
+.loading-spinner{
+  display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--text2);gap:10px;
+}
+.spinner{
+  width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.no-pdf-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--text2);gap:16px;padding:40px;text-align:center;
+}
+.no-pdf-state .icon{font-size:64px;opacity:.4;}
+.no-pdf-state h2{font-size:20px;color:var(--text);font-weight:600;}
+.no-pdf-state p{font-size:14px;max-width:360px;line-height:1.6;}
+
+/* ==================== 上传区 ==================== */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;
+  cursor:pointer;transition:all .2s;background:var(--panel);
+}
+.upload-zone:hover{border-color:var(--accent);background:rgba(74,158,218,.05);}
+.upload-zone.drag-over{border-color:var(--accent);background:rgba(74,158,218,.1);}
+.upload-zone input{display:none;}
+.upload-zone .icon{font-size:40px;margin-bottom:10px;opacity:.6;}
+.upload-zone h3{font-size:16px;margin-bottom:6px;}
+.upload-zone p{font-size:13px;color:var(--text2);}
+.upload-zone small{font-size:11px;color:#666;margin-top:6px;display:block;}
+
+/* ==================== 图例引用覆盖层 ==================== */
+.fig-ref{
+  position:absolute;background:rgba(255,208,96,.15);border:1.5px solid rgba(255,208,96,.6);
+  border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--accent2);overflow:hidden;
+  transition:background .15s,border-color .15s;white-space:nowrap;
+}
+.fig-ref:hover{
+  background:rgba(255,208,96,.28);border-color:var(--accent2);box-shadow:0 2px 10px rgba(255,208,96,.25);
+}
+.fig-ref::before{
+  content:'查看图例';position:absolute;background:rgba(0,0,0,.7);color:#fff;
+  font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap;opacity:0;
+  transition:opacity .15s;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  pointer-events:none;z-index:5;
+}
+.fig-ref:hover::before{opacity:1;}
+
+/* ==================== 图例小窗 ==================== */
+.fig-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;
+  align-items:center;justify-content:center;
+}
+.fig-overlay.pinned{background:transparent;pointer-events:none;z-index:900;}
+.fig-overlay.show{display:flex;}
+.fig-modal{
+  background:var(--panel);border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.85);
+  display:flex;flex-direction:column;overflow:hidden;
+  min-width:360px;min-height:260px;max-width:92vw;max-height:90vh;
+  position:fixed;
+}
+.fig-modal.pinned{pointer-events:all;box-shadow:0 4px 30px rgba(0,0,0,.9),0 0 0 2px var(--accent);}
+/* 初始居中，通过JS控制位置 */
+.fig-modal{top:50%;left:50%;transform:translate(-50%,-50%);}
+/* 拖拽标题栏 */
+.fig-header{
+  background:var(--panel2);padding:9px 12px;display:flex;align-items:center;gap:6px;
+  border-bottom:1px solid var(--border);cursor:move;user-select:none;flex-shrink:0;
+}
+.drag-hint{font-size:14px;color:#555;cursor:move;flex-shrink:0;}
+.fig-title{font-size:13px;font-weight:700;color:var(--accent2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fig-icon-btn{
+  background:none;border:1px solid transparent;color:var(--text2);font-size:15px;
+  padding:3px 6px;border-radius:5px;cursor:pointer;transition:all .15s;flex-shrink:0;line-height:1;
+}
+.fig-icon-btn:hover{color:var(--text);background:var(--border);border-color:var(--border);}
+.fig-icon-btn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(255,208,96,.1);}
+.fig-icon-btn.close-btn{font-size:18px;}
+/* Sheet 切换标签 */
+.fig-tabs{
+  display:flex;background:var(--panel2);border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.fig-tab{
+  padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;flex:1;text-align:center;
+}
+.fig-tab:hover{color:var(--text);}
+.fig-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+/* 图片区 */
+.fig-body{
+  flex:1;overflow:auto;padding:12px;background:#2d2f33;
+  display:flex;align-items:flex-start;justify-content:center;
+}
+.fig-body::-webkit-scrollbar{width:5px;height:5px;}
+.fig-body::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
+.fig-img{max-width:100%;height:auto;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.5);display:block;transform-origin:top center;transition:transform .15s;}
+/* 底部栏 */
+.fig-footer{
+  padding:8px 12px;background:var(--panel2);border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;font-size:12px;color:var(--text2);
+}
+.fig-footer-info{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fig-footer-btn{
+  background:none;border:1px solid var(--border);color:var(--text2);padding:4px 10px;
+  border-radius:5px;cursor:pointer;font-size:12px;transition:all .15s;white-space:nowrap;
+}
+.fig-footer-btn:hover{background:var(--panel);color:var(--text);border-color:var(--accent);}
+/* 右下角 resize */
+.resize-handle{
+  position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;
+  z-index:10;display:block;
+}
+.resize-handle::before{
+  content:'';position:absolute;bottom:3px;right:3px;width:10px;height:10px;
+  border-right:2px solid rgba(255,255,255,.4);border-bottom:2px solid rgba(255,255,255,.4);border-radius:0 0 3px 0;
+}
+.resize-handle:hover::before{border-color:var(--accent);}
+
+/* ==================== 配置面板 ==================== */
+.config-panel{
+  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:2000;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.config-panel.hidden{display:none;}
+.config-box{
+  background:var(--panel);border-radius:12px;width:100%;max-width:560px;max-height:85vh;
+  overflow-y:auto;padding:24px;box-shadow:0 12px 60px rgba(0,0,0,.8);
+}
+.config-box h2{font-size:18px;margin-bottom:4px;color:var(--text);}
+.config-box .subtitle{font-size:13px;color:var(--text2);margin-bottom:20px;}
+.config-section{margin-bottom:20px;}
+.config-section h3{font-size:14px;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.config-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;}
+.config-row label{min-width:120px;color:var(--text2);}
+.config-row input{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 10px;font-size:13px;width:100px;}
+.config-row input:focus{outline:none;border-color:var(--accent);}
+.config-figure-row{
+  display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:6px 8px;
+  background:var(--panel2);border-radius:6px;font-size:13px;
+}
+.config-figure-row input[type=number]{width:70px;background:var(--bg);border-color:var(--border);}
+.config-figure-row input[type=text]{flex:1;background:var(--bg);border-color:var(--border);}
+.config-figure-row .del-btn{
+  background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:2px 4px;border-radius:3px;
+}
+.config-figure-row .del-btn:hover{background:rgba(224,90,90,.15);}
+.add-fig-btn{
+  background:none;border:1px dashed var(--border);color:var(--text2);padding:8px;border-radius:6px;
+  cursor:pointer;font-size:13px;width:100%;transition:all .15s;margin-top:4px;
+}
+.add-fig-btn:hover{border-color:var(--accent);color:var(--accent);}
+.config-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+
+/* ==================== 提示 ==================== */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;
+  z-index:9999;transition:transform .3s;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ==================== 移动端适配 ==================== */
+@media (max-width:768px){
+  :root{--header-h:48px;}
+  .toolbar{padding:0 8px;gap:6px;}
+  .toolbar-title{max-width:120px;font-size:13px;}
+  .toolbar-doc{display:none;}
+  .toolbar-btn{padding:4px 8px;font-size:12px;}
+  .app{height:calc(100vh - var(--header-h));}
+  .page-nav{width:160px;}
+  .page-item{padding:6px 8px;font-size:12px;}
+  .pdf-scroll{padding:12px;}
+  .fig-modal{min-width:300px;max-width:98vw;max-height:88vh;}
+  .fig-title{font-size:12px;}
+  .mode-btn{padding:5px 10px;font-size:12px;}
+  /* 移动端页码栏换行 */
+  .page-bar{flex-wrap:wrap;height:auto;min-height:var(--tab-h);padding:6px 10px;gap:6px;}
+}
+@media (max-width:480px){
+  .page-nav{display:none;} /* 移动端隐藏侧边栏，简化为底部页码条 */
+  .mobile-page-bar{
+    display:flex !important;position:fixed;bottom:0;left:0;right:0;
+    background:var(--panel);border-top:1px solid var(--border);padding:8px 12px;
+    z-index:100;align-items:center;gap:8px;
+  }
+}
+.mobile-page-bar{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ===== 工具栏 ===== -->
+<div class="toolbar">
+  <span class="toolbar-title">📋 IDG 工卡阅览器</span>
+  <span class="toolbar-doc" id="doc-name">—</span>
+  <div class="mode-bar" style="display:none" id="mode-bar">
+    <button class="mode-btn active" onclick="setMode('view')">阅览</button>
+    <button class="mode-btn" onclick="setMode('config')">配置图例引用</button>
+  </div>
+  <button class="toolbar-btn" onclick="document.getElementById('upload-input').click()">📂 打开PDF</button>
+  <input type="file" id="upload-input" accept=".pdf" style="display:none" onchange="handleFileUpload(this.files[0])">
+  <button class="toolbar-btn" id="config-btn" style="display:none" onclick="openConfig()">⚙️ 配置图例</button>
+</div>
+
+<!-- ===== 主内容 ===== -->
+<div class="app">
+  <!-- 左侧页导航 -->
+  <div class="page-nav" id="page-nav">
+    <div class="nav-header">
+      <span>📄</span><span id="nav-title">页码导航</span>
+    </div>
+    <div class="page-list" id="page-list"></div>
+  </div>
+
+  <!-- 右侧内容 -->
+  <div class="content">
+    <!-- 页码控制条 -->
+    <div class="page-bar">
+      <button class="zoom-btn" onclick="prevPage()" title="上一页">◀</button>
+      <input type="number" id="page-input" value="1" min="1" onchange="goToPage(parseInt(this.value))">
+      <span class="page-bar-total">/ <span id="page-total">—</span></span>
+      <button class="zoom-btn" onclick="nextPage()" title="下一页">▶</button>
+      <div class="page-zoom-group">
+        <button class="zoom-btn" onclick="zoomOut()" title="缩小">－</button>
+        <span id="zoom-label" style="font-size:12px;color:var(--text2);min-width:36px;text-align:center;">100%</span>
+        <button class="zoom-btn" onclick="zoomIn()" title="放大">＋</button>
+      </div>
+    </div>
+
+    <!-- PDF 画布 -->
+    <div class="pdf-scroll" id="pdf-scroll">
+      <!-- 初始状态 -->
+      <div class="no-pdf-state" id="no-pdf">
+        <div class="upload-zone" id="upload-zone"
+             ondrop="handleDrop(event)" ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             onclick="document.getElementById('upload-input').click()">
+          <input type="file" accept=".pdf" onchange="handleFileUpload(this.files[0])">
+          <div class="icon">📄</div>
+          <h3>拖入或点击上传 PDF</h3>
+          <p>支持任意工卡、手册 PDF 文件</p>
+          <small>纯前端处理，无需上传到服务器</small>
+        </div>
+      </div>
+      <!-- PDF 渲染区 -->
+      <div id="pdf-canvas-wrap" style="display:none">
+        <canvas id="pdf-canvas"></canvas>
+        <div id="fig-refs-layer" style="position:absolute;inset:0;pointer-events:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 移动端底部页码 ===== -->
+<div class="mobile-page-bar" id="mobile-page-bar">
+  <button class="zoom-btn" onclick="prevPage()">◀</button>
+  <input type="number" id="mobile-page-input" value="1" min="1" style="width:52px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 8px;font-size:13px;text-align:center;" onchange="goToPage(parseInt(this.value))">
+  <span>/ <span id="mobile-page-total">—</span></span>
+  <button class="zoom-btn" onclick="nextPage()">▶</button>
+  <div style="flex:1"></div>
+  <button class="zoom-btn" onclick="toggleMobileNav()">☰</button>
+</div>
+
+<!-- ===== 图例小窗 ===== -->
+<div class="fig-overlay" id="fig-overlay" onclick="figOverlayClick(event)">
+  <div class="fig-modal" id="fig-modal">
+    <div class="fig-header" id="fig-drag-handle">
+      <span class="drag-hint">⠿</span>
+      <span class="fig-title" id="fig-title">图例</span>
+      <!-- 固定 -->
+      <button class="fig-icon-btn" id="fig-pin-btn" onclick="togglePin()" title="固定/浮动">📌</button>
+      <!-- 图片缩放 -->
+      <button class="fig-icon-btn" onclick="imgZoomOut()" title="图片缩小">－</button>
+      <span id="fig-zoom-val" style="font-size:11px;color:#666;min-width:32px;text-align:center;">100%</span>
+      <button class="fig-icon-btn" onclick="imgZoomIn()" title="图片放大">＋</button>
+      <button class="fig-icon-btn" onclick="imgZoomReset()" title="重置" style="font-size:12px;">↺</button>
+      <!-- 关闭 -->
+      <button class="fig-icon-btn close-btn" onclick="closeFig()" title="关闭">✕</button>
+    </div>
+    <div class="fig-tabs" id="fig-tabs"></div>
+    <div class="fig-body" id="fig-body">
+      <img class="fig-img" id="fig-img" src="" alt="" draggable="false">
+    </div>
+    <div class="fig-footer">
+      <span class="fig-footer-info" id="fig-info">—</span>
+      <div style="flex:1"></div>
+      <button class="fig-footer-btn" onclick="jumpToFigPage()">📄 跳转原页</button>
+      <button class="fig-footer-btn" onclick="closeFig()">关闭</button>
+    </div>
+    <div class="resize-handle" id="fig-resize-handle"></div>
+  </div>
+</div>
+
+<!-- ===== 图例配置面板 ===== -->
+<div class="config-panel hidden" id="config-panel">
+  <div class="config-box">
+    <h2>⚙️ 图例引用配置</h2>
+    <p class="subtitle">设置每个图例编号（SHEET 1/2/3...）对应 PDF 的哪一页。配置后可分享链接。</p>
+
+    <div class="config-section">
+      <h3>基本信息</h3>
+      <div class="config-row">
+        <label>工卡编号</label>
+        <input type="text" id="cfg-doc-id" placeholder="如：IDG Oil Level">
+      </div>
+      <div class="config-row">
+        <label>PDF 总页数</label>
+        <input type="number" id="cfg-total-pages" placeholder="13" min="1">
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h3>图例页映射 <small style="font-weight:normal;color:var(--text2)">（填 PDF 中实际包含图例参考页的页码，从 1 开始）</small></h3>
+      <div id="fig-map-list"></div>
+      <button class="add-fig-btn" onclick="addFigMap()">＋ 添加图例</button>
+    </div>
+
+    <div class="config-actions">
+      <button class="toolbar-btn" onclick="loadFromShare()">🔗 从 URL 参数加载</button>
+      <button class="toolbar-btn" onclick="saveConfig()">💾 保存并生成链接</button>
+      <button class="toolbar-btn primary" onclick="applyConfig()">✅ 应用配置</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== PDF.js 初始化 ====================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ==================== 状态 ====================
+let pdfDoc = null;
+let currentPage = 1;
+let totalPages = 0;
+let scale = 1.0;            // 画布缩放
+let figScale = 1.0;         // 小窗图片缩放
+let isPinned = false;       // 小窗固定状态
+let figMap = {};            // { figNum: pdfPageNum(1-based) }
+let figList = [];           // [{num: '1', page: 11}, ...] 有序
+let loadedPages = {};      // { pageNum: canvasDataURL }
+let sourcePage = 1;         // 来源页（跳转用）
+
+// ==================== 初始化 ====================
+function init() {
+  initDrag();
+  initResize();
+  initWheel();
+  initMobile();
+  loadFromURL();
+}
+
+// ==================== 文件上传/拖拽 ====================
+function handleFileUpload(file) {
+  if (!file || !file.name.endsWith('.pdf')) { toast('请选择 PDF 文件'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => loadPDF(e.target.result, file.name);
+  reader.readAsArrayBuffer(file);
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFileUpload(f);
+}
+
+// ==================== PDF 加载 ====================
+async function loadPDF(arrayBuffer, name) {
+  toast('正在加载 PDF…');
+  try {
+    pdfDoc = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    totalPages = pdfDoc.numPages;
+    document.getElementById('doc-name').textContent = name;
+    document.getElementById('page-total').textContent = totalPages;
+    document.getElementById('mobile-page-total').textContent = totalPages;
+    document.getElementById('cfg-total-pages').value = totalPages;
+
+    // 有配置就用配置，无则自动推断图例页
+    if (Object.keys(figMap).length === 0) inferFigMap();
+
+    document.getElementById('no-pdf').style.display = 'none';
+    document.getElementById('pdf-canvas-wrap').style.display = 'inline-block';
+    document.getElementById('mode-bar').style.display = 'flex';
+    document.getElementById('config-btn').style.display = 'inline-block';
+
+    buildPageNav();
+    renderPage(1);
+    toast('PDF 加载成功');
+  } catch(err) {
+    toast('PDF 加载失败: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ==================== 渲染页面 ====================
+async function renderPage(num) {
+  if (num < 1 || num > totalPages) return;
+  currentPage = num;
+  const scroll = document.getElementById('pdf-scroll');
+  const wrap   = document.getElementById('pdf-canvas-wrap');
+  const canvas = document.getElementById('pdf-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // 视口宽度控制最大 scale
+  const maxW   = scroll.clientWidth - 40;
+  const page   = await pdfDoc.getPage(num);
+  const vp     = page.getViewport({scale:1});
+  const fitScale = maxW / vp.width;
+  const finalScale = Math.min(fitScale, 2.5);
+  if (num === 1) scale = finalScale; // 记住首屏缩放
+
+  const viewport = page.getViewport({scale:finalScale});
+  canvas.width  = viewport.width;
+  canvas.height = viewport.height;
+
+  await page.render({canvasContext:ctx, viewport}).promise;
+
+  // 保持位置：渲染前记录滚动比例，渲染后恢复
+  const ratio = scroll.scrollTop / (scroll.scrollHeight || 1);
+  await new Promise(r => setTimeout(r, 50));
+  scroll.scrollTop = ratio * scroll.scrollHeight;
+
+  // 更新UI
+  document.getElementById('page-input').value = num;
+  document.getElementById('mobile-page-input').value = num;
+  document.getElementById('zoom-label').textContent = Math.round(finalScale * 100) + '%';
+  document.querySelectorAll('.page-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.page) === num);
+  });
+  buildFigRefs(viewport);
+}
+
+// ==================== 图例引用覆盖层 ====================
+function buildFigRefs(viewport) {
+  const layer = document.getElementById('fig-refs-layer');
+  layer.innerHTML = '';
+  layer.style.width  = viewport.width  + 'px';
+  layer.style.height = viewport.height + 'px';
+  layer.style.position = 'relative';
+
+  Object.entries(figMap).forEach(([figNum, pdfPage]) => {
+    if (!figNum) return;
+    const el = document.createElement('div');
+    el.className = 'fig-ref';
+    el.textContent = 'SHEET ' + figNum;
+    el.style.left   = '4px';
+    el.style.top    = '4px';
+    el.style.width  = '80px';
+    el.style.height = '28px';
+    el.title = '点击查看图例 ' + figNum;
+    el.onclick = () => openFig(figNum, currentPage);
+    layer.appendChild(el);
+  });
+}
+
+// ==================== 导航 ====================
+function buildPageNav() {
+  const list = document.getElementById('page-list');
+  list.innerHTML = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const isFig = Object.values(figMap).includes(i);
+    const div = document.createElement('div');
+    div.className = 'page-item' + (isFig ? ' fig-page' : '');
+    div.dataset.page = i;
+    div.innerHTML = `<span>${isFig ? '📊' : '📄'}</span><span>第 ${i} 页</span><span class="page-num">${i}</span>`;
+    div.onclick = () => { renderPage(i); };
+    list.appendChild(div);
+  }
+}
+function prevPage() { renderPage(currentPage - 1); }
+function nextPage() { renderPage(currentPage + 1); }
+function goToPage(n) { renderPage(Math.max(1, Math.min(totalPages, n || 1))); }
+function zoomIn()  { renderPage(currentPage); }  // 重新渲染即可自适应
+function zoomOut() { renderPage(currentPage); }
+
+// ==================== 图例小窗 ====================
+function openFig(figNum, srcPage) {
+  sourcePage = srcPage;
+  const figData = getFigData(figNum);
+  if (!figData) { toast('未找到图例 ' + figNum); return; }
+
+  // 渲染图例页到 canvas
+  renderFigPage(figNum, figData.page);
+}
+
+async function renderFigPage(figNum, pdfPageNum) {
+  const modal = document.getElementById('fig-modal');
+  const canvas = document.getElementById('fig-canvas');
+  // 用 img 代替 canvas 做图片
+  let img = document.getElementById('fig-canvas-img');
+  if (!img) {
+    img = document.createElement('img');
+    img.id = 'fig-canvas-img';
+    img.style.cssText = 'max-width:100%;height:auto;display:block;border-radius:4px;transform-origin:top center;transition:transform .15s;';
+    const body = document.getElementById('fig-body');
+    body.innerHTML = '';
+    body.appendChild(img);
+  }
+  const page = await pdfDoc.getPage(pdfPageNum);
+  const viewport = page.getViewport({scale:1.5});
+  const cvs = document.createElement('canvas');
+  cvs.width = viewport.width; cvs.height = viewport.height;
+  await page.render({canvasContext:cvs.getContext('2d'), viewport}).promise;
+  img.src = cvs.toDataURL('image/png');
+
+  // Sheet 标签
+  buildFigTabs(figNum);
+  // 更新标题/信息
+  document.getElementById('fig-title').textContent = `SHEET ${figNum}  /  ${figList.length} 图例`;
+  document.getElementById('fig-info').textContent = `${document.getElementById('doc-name').textContent} — 第 ${pdfPageNum} 页`;
+
+  // 居中定位
+  modal.style.left = ''; modal.style.top = ''; modal.style.width = ''; modal.style.height = '';
+  modal.style.transform = 'translate(-50%,-50%)';
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const w = Math.min(560, vw - 24);
+  const h = Math.min(500, vh - 80);
+  modal.style.width = w + 'px'; modal.style.height = h + 'px';
+
+  figScale = 1.0;
+  applyImgZoom();
+  document.getElementById('fig-overlay').classList.add('show');
+  document.getElementById('fig-overlay').classList.remove('pinned');
+  document.getElementById('fig-modal').classList.remove('pinned');
+  isPinned = false;
+  document.getElementById('fig-pin-btn').classList.remove('active');
+}
+
+function buildFigTabs(activeNum) {
+  const tabs = document.getElementById('fig-tabs');
+  tabs.innerHTML = '';
+  figList.forEach(item => {
+    const tab = document.createElement('div');
+    tab.className = 'fig-tab' + (item.num === activeNum ? ' active' : '');
+    tab.textContent = 'SHEET ' + item.num;
+    tab.onclick = () => renderFigPage(item.num, figMap[item.num]);
+    tabs.appendChild(tab);
+  });
+}
+
+function getFigData(figNum) {
+  const page = figMap[figNum];
+  if (!page) return null;
+  return { num: figNum, page: page };
+}
+
+// 图片缩放
+function imgZoomIn()   { figScale = Math.min(4, figScale + 0.25); applyImgZoom(); }
+function imgZoomOut()  { figScale = Math.max(0.2, figScale - 0.25); applyImgZoom(); }
+function imgZoomReset(){ figScale = 1.0; applyImgZoom(); }
+function applyImgZoom() {
+  const img = document.getElementById('fig-canvas-img') || document.getElementById('fig-img');
+  if (img) { img.style.transform = `scale(${figScale})`; }
+  document.getElementById('fig-zoom-val').textContent = Math.round(figScale * 100) + '%';
+}
+
+// 固定/浮动
+function togglePin() {
+  isPinned = !isPinned;
+  const ov = document.getElementById('fig-overlay');
+  const md = document.getElementById('fig-modal');
+  const btn = document.getElementById('fig-pin-btn');
+  ov.classList.toggle('pinned', isPinned);
+  md.classList.toggle('pinned', isPinned);
+  btn.classList.toggle('active', isPinned);
+  btn.title = isPinned ? '取消固定' : '固定小窗';
+}
+
+// 关闭
+function figOverlayClick(e) {
+  if (!isPinned && e.target === document.getElementById('fig-overlay')) closeFig();
+}
+function closeFig() {
+  document.getElementById('fig-overlay').classList.remove('show','pinned');
+  document.getElementById('fig-modal').classList.remove('pinned');
+  isPinned = false;
+  // 高亮来源页
+  setTimeout(() => {
+    const items = document.querySelectorAll('.page-item');
+    items.forEach(el => el.classList.remove('page-highlight'));
+    const active = document.querySelector(`.page-item[data-page="${sourcePage}"]`);
+    if (active) { active.classList.add('page-highlight'); setTimeout(() => active.classList.remove('page-highlight'), 1500); }
+  }, 100);
+}
+function jumpToFigPage() { renderPage(sourcePage); closeFig(); }
+
+// ==================== 拖拽移动 ====================
+function initDrag() {
+  const handle = document.getElementById('fig-drag-handle');
+  const modal  = document.getElementById('fig-modal');
+  let drag = false, ox = 0, oy = 0;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    drag = true;
+    const r = modal.getBoundingClientRect();
+    ox = e.clientX - r.left; oy = e.clientY - r.top;
+    modal.style.transform = 'none';
+    e.preventDefault();
+  });
+  // 触摸支持
+  handle.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    drag = true;
+    const r = modal.getBoundingClientRect();
+    ox = t.clientX - r.left; oy = t.clientY - r.top;
+    modal.style.transform = 'none';
+  }, {passive:true});
+  document.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    let x = e.clientX - ox, y = e.clientY - oy;
+    x = Math.max(0, Math.min(x, window.innerWidth  - modal.offsetWidth));
+    y = Math.max(0, Math.min(y, window.innerHeight - modal.offsetHeight));
+    modal.style.left = x + 'px'; modal.style.top = y + 'px';
+  });
+  document.addEventListener('touchmove', (e) => {
+    if (!drag) return;
+    const t = e.touches[0];
+    let x = t.clientX - ox, y = t.clientY - oy;
+    x = Math.max(0, Math.min(x, window.innerWidth  - modal.offsetWidth));
+    y = Math.max(0, Math.min(y, window.innerHeight - modal.offsetHeight));
+    modal.style.left = x + 'px'; modal.style.top = y + 'px';
+  }, {passive:true});
+  document.addEventListener('mouseup', () => drag = false);
+  document.addEventListener('touchend', () => drag = false);
+}
+
+// ==================== 缩放窗口 ====================
+function initResize() {
+  const handle = document.getElementById('fig-resize-handle');
+  const modal  = document.getElementById('fig-modal');
+  let res = false, sx = 0, sy = 0, sw = 0, sh = 0;
+  handle.addEventListener('mousedown', (e) => {
+    res = true; sx = e.clientX; sy = e.clientY;
+    sw = modal.offsetWidth; sh = modal.offsetHeight;
+    e.preventDefault(); e.stopPropagation();
+  });
+  handle.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    res = true; sx = t.clientX; sy = t.clientY;
+    sw = modal.offsetWidth; sh = modal.offsetHeight;
+  }, {passive:true});
+  document.addEventListener('mousemove', (e) => {
+    if (!res) return;
+    modal.style.width  = Math.max(300, sw + (e.clientX - sx)) + 'px';
+    modal.style.height = Math.max(220, sh + (e.clientY - sy)) + 'px';
+  });
+  document.addEventListener('touchmove', (e) => {
+    if (!res) return;
+    const t = e.touches[0];
+    modal.style.width  = Math.max(300, sw + (t.clientX - sx)) + 'px';
+    modal.style.height = Math.max(220, sh + (t.clientY - sy)) + 'px';
+  }, {passive:true});
+  document.addEventListener('mouseup', () => res = false);
+  document.addEventListener('touchend', () => res = false);
+}
+
+// ==================== 滚轮缩放图片 ====================
+function initWheel() {
+  const body = document.getElementById('fig-body');
+  body.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) imgZoomIn(); else imgZoomOut();
+  }, {passive:false});
+}
+
+// ==================== 移动端 ====================
+function initMobile() {
+  // 键盘快捷键
+  document.addEventListener('keydown', (e) => {
+    const ov = document.getElementById('fig-overlay');
+    if (!ov.classList.contains('show')) return;
+    if (e.key === 'Escape') closeFig();
+    if (e.key === 'ArrowLeft') switchFig(-1);
+    if (e.key === 'ArrowRight') switchFig(1);
+  });
+}
+function switchFig(dir) {
+  const idx = figList.findIndex(f => f.num === getCurrentFigNum());
+  const next = figList[idx + dir] || figList[idx - dir] || figList[0];
+  if (next) renderFigPage(next.num, figMap[next.num]);
+}
+function getCurrentFigNum() {
+  const tabs = document.querySelectorAll('.fig-tab');
+  for (const t of tabs) if (t.classList.contains('active')) return t.textContent.replace('SHEET ','');
+  return figList[0]?.num || '1';
+}
+let mobileNavVisible = false;
+function toggleMobileNav() {
+  const nav = document.getElementById('page-nav');
+  mobileNavVisible = !mobileNavVisible;
+  nav.style.display = mobileNavVisible ? 'flex' : 'none';
+}
+
+// ==================== 配置面板 ====================
+function openConfig() {
+  document.getElementById('cfg-doc-id').value = document.getElementById('doc-name').textContent || '';
+  document.getElementById('cfg-total-pages').value = totalPages || '';
+  renderFigMapList();
+  document.getElementById('config-panel').classList.remove('hidden');
+}
+function closeConfig() { document.getElementById('config-panel').classList.add('hidden'); }
+function renderFigMapList() {
+  const list = document.getElementById('fig-map-list');
+  list.innerHTML = '';
+  if (figList.length === 0) {
+    // 默认3个
+    ['1','2','3'].forEach(n => addFigRow(n, 10 + parseInt(n)));
+  } else {
+    figList.forEach(item => addFigRow(item.num, item.page));
+  }
+}
+function addFigRow(num, page) {
+  const list = document.getElementById('fig-map-list');
+  const row = document.createElement('div');
+  row.className = 'config-figure-row';
+  row.innerHTML = `
+    <span style="color:var(--text2);font-size:12px;">SHEET</span>
+    <input type="number" id="fig-num-${num}" value="${num}" min="1" placeholder="编号" onchange="syncFromRow(this)">
+    <span style="color:var(--text2);font-size:12px;">= 第</span>
+    <input type="number" id="fig-page-${num}" value="${page}" min="1" max="${totalPages}" placeholder="PDF页">
+    <span style="color:var(--text2);font-size:12px;">页</span>
+    <button class="del-btn" onclick="this.parentElement.remove();rebuildFigList()">✕</button>
+  `;
+  list.appendChild(row);
+}
+function syncFromRow(el) { rebuildFigList(); }
+function addFigMap() {
+  const next = (figList.length + 1).toString();
+  addFigRow(next, 10 + figList.length);
+  rebuildFigList();
+}
+function rebuildFigList() {
+  const rows = document.querySelectorAll('.config-figure-row');
+  figList = [];
+  figMap  = {};
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs[0].value && inputs[1].value) {
+      const num = inputs[0].value;
+      const pg  = parseInt(inputs[1].value);
+      figList.push({num, page:pg});
+      figMap[num] = pg;
+    }
+  });
+}
+function applyConfig() {
+  rebuildFigList();
+  if (pdfDoc) { buildPageNav(); renderPage(currentPage); }
+  closeConfig();
+  toast('配置已应用');
+}
+function saveConfig() {
+  rebuildFigList();
+  const params = new URLSearchParams();
+  params.set('doc', document.getElementById('cfg-doc-id').value || 'PDF');
+  params.set('figs', JSON.stringify(figList));
+  const url = location.origin + location.pathname + '?' + params.toString();
+  navigator.clipboard.writeText(url).then(() => toast('链接已复制到剪贴板！'));
+}
+function loadFromShare() {
+  const p = new URLSearchParams(location.search);
+  const figs = p.get('figs');
+  if (figs) {
+    try {
+      figList = JSON.parse(figs);
+      figMap  = {};
+      figList.forEach(item => figMap[item.num] = item.page);
+      document.getElementById('cfg-doc-id').value = p.get('doc') || '';
+      renderFigMapList();
+      toast('已从 URL 加载配置');
+    } catch(e) { toast('URL 参数解析失败'); }
+  } else { toast('当前 URL 无分享参数'); }
+}
+function loadFromURL() {
+  const p = new URLSearchParams(location.search);
+  const figs = p.get('figs');
+  if (figs) {
+    try {
+      figList = JSON.parse(figs);
+      figMap  = {};
+      figList.forEach(item => figMap[item.num] = item.page);
+      document.getElementById('cfg-doc-id').value = p.get('doc') || '';
+    } catch(e) {}
+  }
+}
+
+// ==================== 自动推断图例页（末页为图例） ====================
+function inferFigMap() {
+  // 简单策略：最后一页 = SHEET 1，倒数第二 = SHEET 2
+  figList = [];
+  figMap  = {};
+  if (totalPages >= 3) {
+    figList.push({num:'1', page:totalPages});
+    figMap['1'] = totalPages;
+    if (totalPages >= 2) { figList.push({num:'2', page:totalPages-1}); figMap['2'] = totalPages-1; }
+  } else if (totalPages === 1) {
+    figList.push({num:'1', page:1}); figMap['1'] = 1;
+  }
+}
+
+// ==================== Toast ====================
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ==================== 启动 ====================
+init();
+</script>
+</body>
+</html>
