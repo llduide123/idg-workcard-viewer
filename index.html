@@ -22,7 +22,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   height:var(--header-h);background:var(--panel);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;z-index:50;
 }
-.toolbar-title{font-size:15px;font-weight:700;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.toolbar-title{font-size:15px;font-weight:700;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
 .toolbar-doc{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
 .toolbar-btn{
   background:none;border:1px solid var(--border);color:var(--text2);padding:5px 10px;
@@ -31,6 +31,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .toolbar-btn:hover{background:var(--panel2);color:var(--text);border-color:var(--accent);}
 .toolbar-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
 .toolbar-btn.primary:hover{background:#5aafef;}
+.toolbar-btn.danger{color:var(--danger);border-color:transparent;}
+.toolbar-btn.danger:hover{background:rgba(224,90,90,.15);border-color:var(--danger);}
 
 /* ==================== 模式切换 ==================== */
 .mode-bar{
@@ -95,8 +97,36 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .pdf-scroll::-webkit-scrollbar{width:6px;height:6px;}
 .pdf-scroll::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
 .pdf-scroll::-webkit-scrollbar-track{background:transparent;}
-#pdf-canvas-wrap{display:inline-block;box-shadow:0 4px 30px rgba(0,0,0,.6);position:relative;}
+
+#pdf-canvas-wrap{
+  display:inline-block;box-shadow:0 4px 30px rgba(0,0,0,.6);
+  position:relative;overflow:hidden;
+}
 #pdf-canvas-wrap canvas{display:block;}
+
+/* 热区覆盖层（热区即图例引用可点击区域） */
+#hotspot-layer{
+  position:absolute;inset:0;pointer-events:none;
+}
+.hotspot{
+  position:absolute;pointer-events:all;cursor:pointer;
+  border:1.5px solid rgba(255,208,96,.7);border-radius:4px;
+  background:rgba(255,208,96,.12);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;transition:all .15s;
+  min-width:40px;min-height:20px;
+}
+.hotspot:hover{
+  background:rgba(255,208,96,.3);border-color:var(--accent2);
+  box-shadow:0 0 12px rgba(255,208,96,.4);
+}
+.hotspot-label{
+  font-size:10px;font-weight:700;color:var(--accent2);padding:2px 6px;
+  background:rgba(0,0,0,.7);border-radius:3px;white-space:nowrap;
+  pointer-events:none;user-select:none;
+}
+.hotspot:hover .hotspot-label{background:rgba(0,0,0,.85);}
+
 /* 页面加载动画 */
 .loading-spinner{
   display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--text2);gap:10px;
@@ -106,6 +136,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   border-radius:50%;animation:spin .8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg);}}
+
 .no-pdf-state{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   color:var(--text2);gap:16px;padding:40px;text-align:center;
@@ -127,24 +158,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .upload-zone p{font-size:13px;color:var(--text2);}
 .upload-zone small{font-size:11px;color:#666;margin-top:6px;display:block;}
 
-/* ==================== 图例引用覆盖层 ==================== */
-.fig-ref{
-  position:absolute;background:rgba(255,208,96,.15);border:1.5px solid rgba(255,208,96,.6);
-  border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:var(--accent2);overflow:hidden;
-  transition:background .15s,border-color .15s;white-space:nowrap;
-}
-.fig-ref:hover{
-  background:rgba(255,208,96,.28);border-color:var(--accent2);box-shadow:0 2px 10px rgba(255,208,96,.25);
-}
-.fig-ref::before{
-  content:'查看图例';position:absolute;background:rgba(0,0,0,.7);color:#fff;
-  font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap;opacity:0;
-  transition:opacity .15s;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
-  pointer-events:none;z-index:5;
-}
-.fig-ref:hover::before{opacity:1;}
-
 /* ==================== 图例小窗 ==================== */
 .fig-overlay{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;
@@ -159,7 +172,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   position:fixed;
 }
 .fig-modal.pinned{pointer-events:all;box-shadow:0 4px 30px rgba(0,0,0,.9),0 0 0 2px var(--accent);}
-/* 初始居中，通过JS控制位置 */
 .fig-modal{top:50%;left:50%;transform:translate(-50%,-50%);}
 /* 拖拽标题栏 */
 .fig-header{
@@ -175,13 +187,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .fig-icon-btn:hover{color:var(--text);background:var(--border);border-color:var(--border);}
 .fig-icon-btn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(255,208,96,.1);}
 .fig-icon-btn.close-btn{font-size:18px;}
+/* 图片缩放值 */
+.fig-zoom-badge{
+  font-size:11px;color:#666;min-width:34px;text-align:center;flex-shrink:0;
+}
 /* Sheet 切换标签 */
 .fig-tabs{
   display:flex;background:var(--panel2);border-bottom:1px solid var(--border);flex-shrink:0;
+  overflow-x:auto;
 }
+.fig-tabs::-webkit-scrollbar{height:3px;}
+.fig-tabs::-webkit-scrollbar-thumb{background:#444;}
 .fig-tab{
   padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;
-  transition:all .15s;flex:1;text-align:center;
+  transition:all .15s;flex-shrink:0;text-align:center;
 }
 .fig-tab:hover{color:var(--text);}
 .fig-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -192,7 +211,30 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .fig-body::-webkit-scrollbar{width:5px;height:5px;}
 .fig-body::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
-.fig-img{max-width:100%;height:auto;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.5);display:block;transform-origin:top center;transition:transform .15s;}
+.fig-img{
+  max-width:100%;height:auto;border-radius:4px;
+  box-shadow:0 2px 12px rgba(0,0,0,.5);display:block;
+  transform-origin:top center;transition:transform .15s;
+}
+/* 提取的图片网格 */
+.fig-images-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;
+  width:100%;
+}
+.fig-image-card{
+  background:var(--panel);border-radius:6px;overflow:hidden;
+  border:1px solid var(--border);cursor:pointer;transition:all .15s;
+}
+.fig-image-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.fig-image-card.active{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(255,208,96,.3);}
+.fig-image-thumb{
+  width:100%;aspect-ratio:4/3;object-fit:contain;
+  background:#1a1c1e;display:block;
+}
+.fig-image-caption{
+  padding:6px 8px;font-size:11px;color:var(--text2);text-align:center;
+  background:var(--panel2);
+}
 /* 底部栏 */
 .fig-footer{
   padding:8px 12px;background:var(--panel2);border-top:1px solid var(--border);
@@ -215,6 +257,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .resize-handle:hover::before{border-color:var(--accent);}
 
+/* ==================== 热区提示（浮动小标签） ==================== */
+.hotspot-tooltip{
+  position:fixed;background:rgba(0,0,0,.9);color:#fff;font-size:12px;
+  padding:6px 10px;border-radius:6px;pointer-events:none;z-index:9999;
+  max-width:220px;border:1px solid rgba(255,208,96,.4);
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+  display:none;
+}
+
 /* ==================== 配置面板 ==================== */
 .config-panel{
   position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:2000;
@@ -222,9 +273,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .config-panel.hidden{display:none;}
 .config-box{
-  background:var(--panel);border-radius:12px;width:100%;max-width:560px;max-height:85vh;
+  background:var(--panel);border-radius:12px;width:100%;max-width:580px;max-height:85vh;
   overflow-y:auto;padding:24px;box-shadow:0 12px 60px rgba(0,0,0,.8);
 }
+.config-box::-webkit-scrollbar{width:4px;}
+.config-box::-webkit-scrollbar-thumb{background:#444;border-radius:2px;}
 .config-box h2{font-size:18px;margin-bottom:4px;color:var(--text);}
 .config-box .subtitle{font-size:13px;color:var(--text2);margin-bottom:20px;}
 .config-section{margin-bottom:20px;}
@@ -248,6 +301,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   cursor:pointer;font-size:13px;width:100%;transition:all .15s;margin-top:4px;
 }
 .add-fig-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.hint-box{
+  background:rgba(74,158,218,.1);border:1px solid rgba(74,158,218,.3);
+  border-radius:6px;padding:10px 14px;font-size:13px;color:var(--accent);
+  line-height:1.6;margin-bottom:16px;
+}
+.hint-box strong{display:block;margin-bottom:4px;}
+
 .config-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
 
 /* ==================== 提示 ==================== */
@@ -257,6 +318,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   z-index:9999;transition:transform .3s;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.5);
 }
 .toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{background:#2a6e4a;}
+.toast.error{background:#6e2a2a;}
 
 /* ==================== 移动端适配 ==================== */
 @media (max-width:768px){
@@ -272,11 +335,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   .fig-modal{min-width:300px;max-width:98vw;max-height:88vh;}
   .fig-title{font-size:12px;}
   .mode-btn{padding:5px 10px;font-size:12px;}
-  /* 移动端页码栏换行 */
   .page-bar{flex-wrap:wrap;height:auto;min-height:var(--tab-h);padding:6px 10px;gap:6px;}
 }
 @media (max-width:480px){
-  .page-nav{display:none;} /* 移动端隐藏侧边栏，简化为底部页码条 */
+  .page-nav{display:none;}
   .mobile-page-bar{
     display:flex !important;position:fixed;bottom:0;left:0;right:0;
     background:var(--panel);border-top:1px solid var(--border);padding:8px 12px;
@@ -292,18 +354,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div class="toolbar">
   <span class="toolbar-title">📋 IDG 工卡阅览器</span>
   <span class="toolbar-doc" id="doc-name">—</span>
-  <div class="mode-bar" style="display:none" id="mode-bar">
+  <div class="mode-bar" id="mode-bar" style="display:none">
     <button class="mode-btn active" onclick="setMode('view')">阅览</button>
-    <button class="mode-btn" onclick="setMode('config')">配置图例引用</button>
+    <button class="mode-btn" onclick="setMode('config')">配置图例</button>
   </div>
   <button class="toolbar-btn" onclick="document.getElementById('upload-input').click()">📂 打开PDF</button>
   <input type="file" id="upload-input" accept=".pdf" style="display:none" onchange="handleFileUpload(this.files[0])">
   <button class="toolbar-btn" id="config-btn" style="display:none" onclick="openConfig()">⚙️ 配置图例</button>
+  <button class="toolbar-btn" id="extract-btn" style="display:none" onclick="extractImagesFromPDF()">🖼️ 提取图片</button>
 </div>
 
 <!-- ===== 主内容 ===== -->
 <div class="app">
-  <!-- 左侧页导航 -->
   <div class="page-nav" id="page-nav">
     <div class="nav-header">
       <span>📄</span><span id="nav-title">页码导航</span>
@@ -311,9 +373,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="page-list" id="page-list"></div>
   </div>
 
-  <!-- 右侧内容 -->
   <div class="content">
-    <!-- 页码控制条 -->
     <div class="page-bar">
       <button class="zoom-btn" onclick="prevPage()" title="上一页">◀</button>
       <input type="number" id="page-input" value="1" min="1" onchange="goToPage(parseInt(this.value))">
@@ -326,9 +386,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
     </div>
 
-    <!-- PDF 画布 -->
     <div class="pdf-scroll" id="pdf-scroll">
-      <!-- 初始状态 -->
       <div class="no-pdf-state" id="no-pdf">
         <div class="upload-zone" id="upload-zone"
              ondrop="handleDrop(event)" ondragover="event.preventDefault();this.classList.add('drag-over')"
@@ -341,10 +399,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <small>纯前端处理，无需上传到服务器</small>
         </div>
       </div>
-      <!-- PDF 渲染区 -->
       <div id="pdf-canvas-wrap" style="display:none">
         <canvas id="pdf-canvas"></canvas>
-        <div id="fig-refs-layer" style="position:absolute;inset:0;pointer-events:none;"></div>
+        <div id="hotspot-layer"></div>
       </div>
     </div>
   </div>
@@ -366,41 +423,49 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="fig-header" id="fig-drag-handle">
       <span class="drag-hint">⠿</span>
       <span class="fig-title" id="fig-title">图例</span>
-      <!-- 固定 -->
       <button class="fig-icon-btn" id="fig-pin-btn" onclick="togglePin()" title="固定/浮动">📌</button>
-      <!-- 图片缩放 -->
       <button class="fig-icon-btn" onclick="imgZoomOut()" title="图片缩小">－</button>
-      <span id="fig-zoom-val" style="font-size:11px;color:#666;min-width:32px;text-align:center;">100%</span>
+      <span class="fig-zoom-badge" id="fig-zoom-val">100%</span>
       <button class="fig-icon-btn" onclick="imgZoomIn()" title="图片放大">＋</button>
       <button class="fig-icon-btn" onclick="imgZoomReset()" title="重置" style="font-size:12px;">↺</button>
-      <!-- 关闭 -->
       <button class="fig-icon-btn close-btn" onclick="closeFig()" title="关闭">✕</button>
     </div>
     <div class="fig-tabs" id="fig-tabs"></div>
     <div class="fig-body" id="fig-body">
+      <!-- 单图模式 -->
       <img class="fig-img" id="fig-img" src="" alt="" draggable="false">
+      <!-- 提取图片网格模式 -->
+      <div class="fig-images-grid" id="fig-images-grid" style="display:none"></div>
     </div>
     <div class="fig-footer">
       <span class="fig-footer-info" id="fig-info">—</span>
       <div style="flex:1"></div>
-      <button class="fig-footer-btn" onclick="jumpToFigPage()">📄 跳转原页</button>
+      <button class="fig-footer-btn" id="jump-btn" onclick="jumpToFigPage()">📄 跳转原页</button>
       <button class="fig-footer-btn" onclick="closeFig()">关闭</button>
     </div>
     <div class="resize-handle" id="fig-resize-handle"></div>
   </div>
 </div>
 
+<!-- ===== 热区提示 ===== -->
+<div class="hotspot-tooltip" id="hotspot-tooltip"></div>
+
 <!-- ===== 图例配置面板 ===== -->
 <div class="config-panel hidden" id="config-panel">
   <div class="config-box">
     <h2>⚙️ 图例引用配置</h2>
-    <p class="subtitle">设置每个图例编号（SHEET 1/2/3...）对应 PDF 的哪一页。配置后可分享链接。</p>
+    <p class="subtitle">设置每个 SHEET 图例编号对应的 PDF 页码，以及要检测的引用关键词。</p>
+
+    <div class="hint-box">
+      <strong>💡 使用说明</strong>
+      上传 PDF 后，先到「配置图例」设置 SHEET 编号与 PDF 页码的对应关系（通常是末页为 SHEET 1），然后点击工具栏「<strong>🖼️ 提取图片</strong>」让工具自动从图例页提取图片并识别正文中的引用位置。
+    </div>
 
     <div class="config-section">
       <h3>基本信息</h3>
       <div class="config-row">
-        <label>工卡编号</label>
-        <input type="text" id="cfg-doc-id" placeholder="如：IDG Oil Level">
+        <label>工卡名称</label>
+        <input type="text" id="cfg-doc-id" placeholder="如：IDG Oil Level" style="width:200px">
       </div>
       <div class="config-row">
         <label>PDF 总页数</label>
@@ -409,13 +474,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
 
     <div class="config-section">
-      <h3>图例页映射 <small style="font-weight:normal;color:var(--text2)">（填 PDF 中实际包含图例参考页的页码，从 1 开始）</small></h3>
+      <h3>图例页映射 <small style="font-weight:normal;color:var(--text2)">（填 PDF 中的实际图例页页码，从 1 开始）</small></h3>
       <div id="fig-map-list"></div>
-      <button class="add-fig-btn" onclick="addFigMap()">＋ 添加图例</button>
+      <button class="add-fig-btn" onclick="addFigMap()">＋ 添加图例页</button>
+    </div>
+
+    <div class="config-section">
+      <h3>引用关键词 <small style="font-weight:normal;color:var(--text2)">（匹配正文中的图例引用文字，如 "Figure 24-21-00" 或 "SHEET 1"）</small></h3>
+      <div id="keyword-list">
+        <div class="config-row">
+          <input type="text" value="Figure" style="width:120px" id="kw-figure">
+          <span style="color:var(--text2);font-size:12px;">匹配 "Figure XX-XX-XX"</span>
+        </div>
+        <div class="config-row">
+          <input type="text" value="SHEET" style="width:120px" id="kw-sheet">
+          <span style="color:var(--text2);font-size:12px;">匹配 "SHEET 1/2/3"</span>
+        </div>
+        <div class="config-row">
+          <input type="text" value="图" style="width:120px" id="kw-chi">
+          <span style="color:var(--text2);font-size:12px;">匹配中文"图 XX"</span>
+        </div>
+      </div>
     </div>
 
     <div class="config-actions">
-      <button class="toolbar-btn" onclick="loadFromShare()">🔗 从 URL 参数加载</button>
+      <button class="toolbar-btn" onclick="loadFromURL()">🔗 从 URL 参数加载</button>
       <button class="toolbar-btn" onclick="saveConfig()">💾 保存并生成链接</button>
       <button class="toolbar-btn primary" onclick="applyConfig()">✅ 应用配置</button>
     </div>
@@ -433,13 +516,17 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
-let scale = 1.0;            // 画布缩放
-let figScale = 1.0;         // 小窗图片缩放
-let isPinned = false;       // 小窗固定状态
-let figMap = {};            // { figNum: pdfPageNum(1-based) }
-let figList = [];           // [{num: '1', page: 11}, ...] 有序
-let loadedPages = {};      // { pageNum: canvasDataURL }
-let sourcePage = 1;         // 来源页（跳转用）
+let renderScale = 1.0;       // 画布缩放
+let imgScale = 1.0;         // 小窗图片缩放
+let isPinned = false;
+let figMap = {};            // { figNumStr: pdfPageNum(1-based) }
+let figList = [];           // [{num: '1', page: 11}, ...]
+let keywords = ['Figure', 'SHEET', '图']; // 引用关键词
+let extractedImages = {};   // { pdfPageNum: [{url, label, width, height}] }
+let pageTextCache = {};     // { pdfPageNum: [{text, transform, width, height}] }
+let sourcePage = 1;
+let hotspotEls = [];        // 当前页热区元素
+let isExtracting = false;
 
 // ==================== 初始化 ====================
 function init() {
@@ -452,7 +539,7 @@ function init() {
 
 // ==================== 文件上传/拖拽 ====================
 function handleFileUpload(file) {
-  if (!file || !file.name.endsWith('.pdf')) { toast('请选择 PDF 文件'); return; }
+  if (!file || !file.name.endsWith('.pdf')) { toast('请选择 PDF 文件', 'error'); return; }
   const reader = new FileReader();
   reader.onload = (e) => loadPDF(e.target.result, file.name);
   reader.readAsArrayBuffer(file);
@@ -475,19 +562,24 @@ async function loadPDF(arrayBuffer, name) {
     document.getElementById('mobile-page-total').textContent = totalPages;
     document.getElementById('cfg-total-pages').value = totalPages;
 
-    // 有配置就用配置，无则自动推断图例页
+    // 无配置则推断
     if (Object.keys(figMap).length === 0) inferFigMap();
+
+    // 清空缓存
+    extractedImages = {};
+    pageTextCache = {};
 
     document.getElementById('no-pdf').style.display = 'none';
     document.getElementById('pdf-canvas-wrap').style.display = 'inline-block';
     document.getElementById('mode-bar').style.display = 'flex';
     document.getElementById('config-btn').style.display = 'inline-block';
+    document.getElementById('extract-btn').style.display = 'inline-block';
 
     buildPageNav();
     renderPage(1);
     toast('PDF 加载成功');
   } catch(err) {
-    toast('PDF 加载失败: ' + err.message);
+    toast('PDF 加载失败: ' + err.message, 'error');
     console.error(err);
   }
 }
@@ -496,128 +588,427 @@ async function loadPDF(arrayBuffer, name) {
 async function renderPage(num) {
   if (num < 1 || num > totalPages) return;
   currentPage = num;
+
   const scroll = document.getElementById('pdf-scroll');
   const wrap   = document.getElementById('pdf-canvas-wrap');
   const canvas = document.getElementById('pdf-canvas');
   const ctx    = canvas.getContext('2d');
 
-  // 视口宽度控制最大 scale
-  const maxW   = scroll.clientWidth - 40;
-  const page   = await pdfDoc.getPage(num);
-  const vp     = page.getViewport({scale:1});
-  const fitScale = maxW / vp.width;
-  const finalScale = Math.min(fitScale, 2.5);
-  if (num === 1) scale = finalScale; // 记住首屏缩放
+  const maxW = scroll.clientWidth - 40;
+  const page = await pdfDoc.getPage(num);
+  const vp   = page.getViewport({scale:1});
+  const fitS = Math.min(maxW / vp.width, 2.5);
+  if (num === 1) renderScale = fitS;
 
-  const viewport = page.getViewport({scale:finalScale});
+  const viewport = page.getViewport({scale:fitS});
   canvas.width  = viewport.width;
   canvas.height = viewport.height;
 
+  // 渲染
   await page.render({canvasContext:ctx, viewport}).promise;
 
-  // 保持位置：渲染前记录滚动比例，渲染后恢复
-  const ratio = scroll.scrollTop / (scroll.scrollHeight || 1);
-  await new Promise(r => setTimeout(r, 50));
-  scroll.scrollTop = ratio * scroll.scrollHeight;
-
-  // 更新UI
+  // 更新 UI
   document.getElementById('page-input').value = num;
   document.getElementById('mobile-page-input').value = num;
-  document.getElementById('zoom-label').textContent = Math.round(finalScale * 100) + '%';
+  document.getElementById('zoom-label').textContent = Math.round(fitS * 100) + '%';
   document.querySelectorAll('.page-item').forEach(el => {
     el.classList.toggle('active', parseInt(el.dataset.page) === num);
   });
-  buildFigRefs(viewport);
+
+  // 渲染热区
+  await renderHotspots(num, viewport, fitS);
 }
 
-// ==================== 图例引用覆盖层 ====================
-function buildFigRefs(viewport) {
-  const layer = document.getElementById('fig-refs-layer');
+// ==================== 热区渲染（核心功能） ====================
+// 从 PDF 文本层提取图例引用位置，生成可点击热区
+async function renderHotspots(pageNum, viewport, scale) {
+  const layer = document.getElementById('hotspot-layer');
   layer.innerHTML = '';
   layer.style.width  = viewport.width  + 'px';
   layer.style.height = viewport.height + 'px';
-  layer.style.position = 'relative';
+  hotspotEls = [];
 
-  Object.entries(figMap).forEach(([figNum, pdfPage]) => {
-    if (!figNum) return;
-    const el = document.createElement('div');
-    el.className = 'fig-ref';
-    el.textContent = 'SHEET ' + figNum;
-    el.style.left   = '4px';
-    el.style.top    = '4px';
-    el.style.width  = '80px';
-    el.style.height = '28px';
-    el.title = '点击查看图例 ' + figNum;
-    el.onclick = () => openFig(figNum, currentPage);
-    layer.appendChild(el);
-  });
-}
+  // 获取文本内容
+  const textItems = await getPageText(pageNum);
+  if (!textItems || textItems.length === 0) return;
 
-// ==================== 导航 ====================
-function buildPageNav() {
-  const list = document.getElementById('page-list');
-  list.innerHTML = '';
-  for (let i = 1; i <= totalPages; i++) {
-    const isFig = Object.values(figMap).includes(i);
-    const div = document.createElement('div');
-    div.className = 'page-item' + (isFig ? ' fig-page' : '');
-    div.dataset.page = i;
-    div.innerHTML = `<span>${isFig ? '📊' : '📄'}</span><span>第 ${i} 页</span><span class="page-num">${i}</span>`;
-    div.onclick = () => { renderPage(i); };
-    list.appendChild(div);
+  // 找出匹配关键词的文本片段
+  const matches = findKeywordMatches(textItems, keywords);
+  if (matches.length === 0) return;
+
+  // 查找该页引用的 SHEET 编号
+  for (const match of matches) {
+    const figNums = extractFigNums(match.text);
+    if (figNums.length === 0) continue;
+
+    // 找到第一个有效图例
+    let targetFig = null;
+    for (const fn of figNums) {
+      if (figMap[fn] !== undefined) { targetFig = fn; break; }
+    }
+    // 如果文本只有数字，尝试最近的前后图例编号
+    if (!targetFig && figNums.length === 1 && figNums[0] !== '') {
+      targetFig = figNums[0];
+    }
+    if (!targetFig) continue;
+
+    // 计算热区位置（使用 transform 矩阵转换坐标）
+    const rect = textToRect(match, viewport);
+    if (!rect || rect.w < 20 || rect.h < 10) continue;
+
+    const hotspot = document.createElement('div');
+    hotspot.className = 'hotspot';
+    hotspot.style.left   = rect.x + 'px';
+    hotspot.style.top    = rect.y + 'px';
+    hotspot.style.width  = Math.max(50, rect.w) + 'px';
+    hotspot.style.height = Math.max(22, rect.h) + 'px';
+
+    const label = document.createElement('span');
+    label.className = 'hotspot-label';
+    label.textContent = '📊 ' + match.text.substring(0, 20).trim();
+    hotspot.appendChild(label);
+
+    // 存储目标
+    hotspot.dataset.figNum = targetFig;
+    hotspot.dataset.srcPage = pageNum;
+    hotspot.dataset.label = match.text;
+
+    // 点击事件：显示图例
+    hotspot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fn = hotspot.dataset.figNum;
+      openFigPanel(fn, pageNum);
+    });
+
+    // 悬停提示
+    hotspot.addEventListener('mouseenter', (e) => showHotspotTip(e, hotspot));
+    hotspot.addEventListener('mouseleave', hideHotspotTip);
+    // 触摸
+    hotspot.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+      showHotspotTip(e, hotspot);
+    }, {passive:true});
+    hotspot.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      hideHotspotTip();
+      openFigPanel(hotspot.dataset.figNum, parseInt(hotspot.dataset.srcPage));
+    });
+
+    layer.appendChild(hotspot);
+    hotspotEls.push(hotspot);
   }
 }
-function prevPage() { renderPage(currentPage - 1); }
-function nextPage() { renderPage(currentPage + 1); }
-function goToPage(n) { renderPage(Math.max(1, Math.min(totalPages, n || 1))); }
-function zoomIn()  { renderPage(currentPage); }  // 重新渲染即可自适应
-function zoomOut() { renderPage(currentPage); }
+
+// 获取页面文本（带缓存）
+async function getPageText(pageNum) {
+  if (pageTextCache[pageNum]) return pageTextCache[pageNum];
+  try {
+    const page = await pdfDoc.getPage(pageNum);
+    const items = await page.getTextContent();
+    pageTextCache[pageNum] = items.items;
+    return items.items;
+  } catch(e) {
+    return [];
+  }
+}
+
+// 从文本项中找出匹配关键词的内容
+function findKeywordMatches(items, kws) {
+  const results = [];
+  for (const item of items) {
+    if (!item.str || !item.str.trim()) continue;
+    const t = item.str.trim();
+    for (const kw of kws) {
+      if (kw && t.includes(kw)) {
+        results.push(item);
+        break;
+      }
+    }
+  }
+  return results;
+}
+
+// 提取文本中的图例编号（1,2,3 或字母数字组合）
+function extractFigNums(text) {
+  const nums = [];
+  // 匹配 "Figure XX-XX-XX" 或 "SHEET 1" 或 "图 1"
+  const patterns = [
+    /SHEET\s*(\d+)/gi,
+    /Figure\s+[\d\w-]+/gi,
+    /图\s*(\d+)/g,
+    /\b(\d+)\b/g
+  ];
+  for (const p of patterns) {
+    let m;
+    const re = new RegExp(p.source, p.flags);
+    while ((m = re.exec(text)) !== null) {
+      if (p.source.startsWith('SHEET')) {
+        nums.push(m[1]);
+      } else if (p.source.startsWith('Figure')) {
+        nums.push(m[0].replace('Figure','').trim());
+      } else if (p.source.startsWith('图')) {
+        nums.push(m[1]);
+      } else {
+        const n = parseInt(m[1]);
+        if (n >= 1 && n <= 20) nums.push(m[1]);
+      }
+    }
+  }
+  return [...new Set(nums)];
+}
+
+// 将 PDF 文本坐标转换为画布像素坐标
+function textToRect(item, viewport) {
+  if (!item.transform || !item.width || !item.height) {
+    // fallback: 使用 transform 猜测
+    if (item.transform) {
+      const [a,b,c,d,e,f] = item.transform;
+      const tx = e * viewport.scale;
+      const ty = (viewport.height - f * viewport.scale);
+      const tw = (item.str.length * 8 * viewport.scale / viewport.scale);
+      const th = 14 * viewport.scale / viewport.scale;
+      return { x: tx, y: ty - 12 * viewport.scale / viewport.scale, w: tw, h: th };
+    }
+    return null;
+  }
+
+  const [a, b, c, d, e, f] = item.transform;
+  // PDF 坐标原点在左下，viewport 原点在左上
+  const canvasX = e * viewport.scale;
+  const canvasY = (viewport.height - f * viewport.scale);
+
+  // 估算文本宽度和高度（粗略）
+  const fontSizeApprox = Math.abs(b) > 0.01 ? Math.sqrt(a*a + b*b) : 10;
+  const textW = item.width  || (item.str.length * fontSizeApprox * 0.6);
+  const textH = item.height || (fontSizeApprox * 1.2);
+
+  return {
+    x: canvasX,
+    y: canvasY - textH * viewport.scale,
+    w: textW * viewport.scale,
+    h: textH * viewport.scale
+  };
+}
+
+// 热区提示
+const tooltip = document.getElementById('hotspot-tooltip');
+function showHotspotTip(e, el) {
+  const fn = el.dataset.figNum;
+  const page = figMap[fn];
+  tooltip.innerHTML = `<strong>📊 ${el.dataset.label}</strong>点击查看 SHEET ${fn}<br><small style="color:#aaa">对应图例页：第 ${page || '?'} 页</small>`;
+  tooltip.style.display = 'block';
+  const rect = el.getBoundingClientRect();
+  tooltip.style.left = Math.min(rect.left, window.innerWidth - 240) + 'px';
+  tooltip.style.top  = (rect.bottom + 6) + 'px';
+}
+function hideHotspotTip() { tooltip.style.display = 'none'; }
+
+// ==================== 从 PDF 图例页提取图片 ====================
+async function extractImagesFromPDF() {
+  if (!pdfDoc) { toast('请先上传 PDF', 'error'); return; }
+  if (Object.keys(figMap).length === 0) {
+    toast('请先配置图例页！点击「⚙️ 配置图例」', 'error'); return;
+  }
+
+  toast('正在提取图片，这可能需要几秒…');
+  isExtracting = true;
+
+  const figPages = Object.values(figMap).filter(p => p);
+  let totalExtracted = 0;
+
+  for (const pageNum of figPages) {
+    if (extractedImages[pageNum]) continue; // 已提取
+    try {
+      const images = await extractPageImages(pageNum);
+      extractedImages[pageNum] = images;
+      totalExtracted += images.length;
+    } catch(e) {
+      console.warn('提取第', pageNum, '页图片失败:', e);
+    }
+  }
+
+  isExtracting = false;
+  if (totalExtracted > 0) {
+    toast(`提取完成！共找到 ${totalExtracted} 张图片，现在可以在正文页看到热区了`);
+    // 重新渲染当前页
+    renderPage(currentPage);
+  } else {
+    toast('该 PDF 的图例页未检测到可提取的图片（可能是矢量图或特殊编码），但热区功能仍可用', '', 4000);
+  }
+}
+
+// 从指定页提取图片
+async function extractPageImages(pageNum) {
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({scale:2}); // 高分辨率提取
+
+  // 使用自定义渲染提取 XObject 图片
+  const images = await page.getObjects({ kind: { promise: Promise.resolve(['XObject', 'Image']) } }).catch(() => null);
+
+  // 备用方案：渲染到 canvas 再提取
+  const canvas = document.createElement('canvas');
+  canvas.width  = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({canvasContext:ctx, viewport}).promise;
+
+  // 高分辨率 canvas → dataURL
+  const pageDataUrl = canvas.toDataURL('image/png');
+
+  // 尝试解析 operatorList 获取独立图片
+  try {
+    const opList = await page.getOperatorList();
+    const imgObjs = [];
+
+    for (let i = 0; i < opList.fnArray.length; i++) {
+      const fn = opList.fnArray[i];
+      // OPS.paintJpegXObject = 12, paintImageXObject = 85
+      if (fn === 12 || fn === 85) {
+        const imgName = opList.argsArray[i][0];
+        try {
+          const imgObj = await page.objs.get(imgName);
+          if (imgObj && imgObj.data) {
+            const dataUrl = arrayToDataURL(imgObj);
+            if (dataUrl) {
+              imgObjs.push({
+                url: dataUrl,
+                label: imgName || `Image ${imgObjs.length + 1}`,
+                width: imgObj.width,
+                height: imgObj.data.length / (imgObj.width * 4) * imgObj.width
+              });
+            }
+          }
+        } catch(_) {}
+      }
+    }
+
+    if (imgObjs.length > 0) return imgObjs;
+  } catch(_) {}
+
+  // fallback：整页截图
+  return [{
+    url: pageDataUrl,
+    label: `SHEET ${Object.keys(figMap).find(k => figMap[k] === pageNum) || pageNum}`,
+    width: viewport.width,
+    height: viewport.height
+  }];
+}
+
+// 将 PDF.js 图片对象转换为 dataURL
+function arrayToDataURL(imgObj) {
+  try {
+    const { data, width, height, fillColorSpace } = imgObj;
+    const canvas = document.createElement('canvas');
+    canvas.width  = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(width, height);
+
+    if (data && data.length >= width * height * 4) {
+      imgData.data.set(new Uint8ClampedArray(data));
+    } else if (data && data.length === width * height * 3) {
+      // RGB → RGBA
+      for (let i = 0; i < width * height; i++) {
+        imgData.data[i*4]   = data[i*3];
+        imgData.data[i*4+1] = data[i*3+1];
+        imgData.data[i*4+2] = data[i*3+2];
+        imgData.data[i*4+3] = 255;
+      }
+    } else {
+      return null;
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch(e) {
+    return null;
+  }
+}
 
 // ==================== 图例小窗 ====================
-function openFig(figNum, srcPage) {
+function openFigPanel(figNum, srcPage) {
   sourcePage = srcPage;
-  const figData = getFigData(figNum);
-  if (!figData) { toast('未找到图例 ' + figNum); return; }
 
-  // 渲染图例页到 canvas
-  renderFigPage(figNum, figData.page);
+  const page = figMap[figNum];
+  if (!page) { toast('未找到图例页配置', 'error'); return; }
+
+  // 提取或使用已缓存的图片
+  showFigModal(figNum, page);
 }
 
-async function renderFigPage(figNum, pdfPageNum) {
-  const modal = document.getElementById('fig-modal');
-  const canvas = document.getElementById('fig-canvas');
-  // 用 img 代替 canvas 做图片
-  let img = document.getElementById('fig-canvas-img');
-  if (!img) {
-    img = document.createElement('img');
-    img.id = 'fig-canvas-img';
-    img.style.cssText = 'max-width:100%;height:auto;display:block;border-radius:4px;transform-origin:top center;transition:transform .15s;';
-    const body = document.getElementById('fig-body');
-    body.innerHTML = '';
-    body.appendChild(img);
-  }
-  const page = await pdfDoc.getPage(pdfPageNum);
-  const viewport = page.getViewport({scale:1.5});
-  const cvs = document.createElement('canvas');
-  cvs.width = viewport.width; cvs.height = viewport.height;
-  await page.render({canvasContext:cvs.getContext('2d'), viewport}).promise;
-  img.src = cvs.toDataURL('image/png');
+async function showFigModal(figNum, pageNum) {
+  const modal  = document.getElementById('fig-modal');
+  const tabs   = document.getElementById('fig-tabs');
+  const imgEl  = document.getElementById('fig-img');
+  const grid   = document.getElementById('fig-images-grid');
+  const infoEl = document.getElementById('fig-info');
 
-  // Sheet 标签
-  buildFigTabs(figNum);
-  // 更新标题/信息
-  document.getElementById('fig-title').textContent = `SHEET ${figNum}  /  ${figList.length} 图例`;
-  document.getElementById('fig-info').textContent = `${document.getElementById('doc-name').textContent} — 第 ${pdfPageNum} 页`;
+  // 构建 Sheet 标签
+  tabs.innerHTML = '';
+  figList.forEach(item => {
+    const tab = document.createElement('div');
+    tab.className = 'fig-tab' + (item.num === figNum ? ' active' : '');
+    tab.textContent = 'SHEET ' + item.num;
+    tab.onclick = () => showFigModal(item.num, figMap[item.num]);
+    tabs.appendChild(tab);
+  });
+
+  // 更新标题
+  document.getElementById('fig-title').textContent =
+    `SHEET ${figNum}  /  ${figList.length} 图例`;
+  infoEl.textContent =
+    `${document.getElementById('doc-name').textContent} — 第 ${pageNum} 页`;
+
+  // 显示模式：提取到图片 → 网格；未提取 → 单图
+  const imgs = extractedImages[pageNum];
+  if (imgs && imgs.length > 1) {
+    // 图片网格模式
+    imgEl.style.display = 'none';
+    grid.style.display = 'grid';
+    grid.innerHTML = '';
+    imgs.forEach((img, idx) => {
+      const card = document.createElement('div');
+      card.className = 'fig-image-card' + (idx === 0 ? ' active' : '');
+      card.innerHTML = `
+        <img class="fig-image-thumb" src="${img.url}" alt="${img.label}"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 60%22><rect fill=%22%23222%22 width=%22100%22 height=%2260%22/><text x=%2250%22 y=%2235%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2212%22>Image</text></svg>'">
+        <div class="fig-image-caption">${img.label}</div>
+      `;
+      card.onclick = () => {
+        grid.querySelectorAll('.fig-image-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        imgEl.src = img.url;
+        imgEl.style.display = 'block';
+        imgScale = 1.0;
+        applyImgZoom();
+      };
+      grid.appendChild(card);
+    });
+    // 默认显示第一张
+    if (imgs[0]) {
+      imgEl.src = imgs[0].url;
+      imgEl.style.display = 'block';
+    }
+  } else {
+    // 单图模式：渲染图例页
+    imgEl.style.display = 'block';
+    grid.style.display = 'none';
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({scale:1.5});
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({canvasContext:canvas.getContext('2d'), viewport}).promise;
+    imgEl.src = canvas.toDataURL('image/png');
+  }
 
   // 居中定位
   modal.style.left = ''; modal.style.top = ''; modal.style.width = ''; modal.style.height = '';
   modal.style.transform = 'translate(-50%,-50%)';
   const vw = window.innerWidth, vh = window.innerHeight;
-  const w = Math.min(560, vw - 24);
-  const h = Math.min(500, vh - 80);
-  modal.style.width = w + 'px'; modal.style.height = h + 'px';
+  modal.style.width  = Math.min(600, vw - 24) + 'px';
+  modal.style.height = Math.min(540, vh - 80) + 'px';
 
-  figScale = 1.0;
+  imgScale = 1.0;
   applyImgZoom();
   document.getElementById('fig-overlay').classList.add('show');
   document.getElementById('fig-overlay').classList.remove('pinned');
@@ -626,44 +1017,22 @@ async function renderFigPage(figNum, pdfPageNum) {
   document.getElementById('fig-pin-btn').classList.remove('active');
 }
 
-function buildFigTabs(activeNum) {
-  const tabs = document.getElementById('fig-tabs');
-  tabs.innerHTML = '';
-  figList.forEach(item => {
-    const tab = document.createElement('div');
-    tab.className = 'fig-tab' + (item.num === activeNum ? ' active' : '');
-    tab.textContent = 'SHEET ' + item.num;
-    tab.onclick = () => renderFigPage(item.num, figMap[item.num]);
-    tabs.appendChild(tab);
-  });
-}
-
-function getFigData(figNum) {
-  const page = figMap[figNum];
-  if (!page) return null;
-  return { num: figNum, page: page };
-}
-
 // 图片缩放
-function imgZoomIn()   { figScale = Math.min(4, figScale + 0.25); applyImgZoom(); }
-function imgZoomOut()  { figScale = Math.max(0.2, figScale - 0.25); applyImgZoom(); }
-function imgZoomReset(){ figScale = 1.0; applyImgZoom(); }
+function imgZoomIn()   { imgScale = Math.min(4, imgScale + 0.25); applyImgZoom(); }
+function imgZoomOut()  { imgScale = Math.max(0.2, imgScale - 0.25); applyImgZoom(); }
+function imgZoomReset(){ imgScale = 1.0; applyImgZoom(); }
 function applyImgZoom() {
-  const img = document.getElementById('fig-canvas-img') || document.getElementById('fig-img');
-  if (img) { img.style.transform = `scale(${figScale})`; }
-  document.getElementById('fig-zoom-val').textContent = Math.round(figScale * 100) + '%';
+  const img = document.getElementById('fig-img');
+  if (img) { img.style.transform = `scale(${imgScale})`; }
+  document.getElementById('fig-zoom-val').textContent = Math.round(imgScale * 100) + '%';
 }
 
 // 固定/浮动
 function togglePin() {
   isPinned = !isPinned;
-  const ov = document.getElementById('fig-overlay');
-  const md = document.getElementById('fig-modal');
-  const btn = document.getElementById('fig-pin-btn');
-  ov.classList.toggle('pinned', isPinned);
-  md.classList.toggle('pinned', isPinned);
-  btn.classList.toggle('active', isPinned);
-  btn.title = isPinned ? '取消固定' : '固定小窗';
+  document.getElementById('fig-overlay').classList.toggle('pinned', isPinned);
+  document.getElementById('fig-modal').classList.toggle('pinned', isPinned);
+  document.getElementById('fig-pin-btn').classList.toggle('active', isPinned);
 }
 
 // 关闭
@@ -671,24 +1040,26 @@ function figOverlayClick(e) {
   if (!isPinned && e.target === document.getElementById('fig-overlay')) closeFig();
 }
 function closeFig() {
-  document.getElementById('fig-overlay').classList.remove('show','pinned');
+  document.getElementById('fig-overlay').classList.remove('show', 'pinned');
   document.getElementById('fig-modal').classList.remove('pinned');
   isPinned = false;
-  // 高亮来源页
   setTimeout(() => {
-    const items = document.querySelectorAll('.page-item');
-    items.forEach(el => el.classList.remove('page-highlight'));
+    document.querySelectorAll('.page-item').forEach(el => el.classList.remove('page-highlight'));
     const active = document.querySelector(`.page-item[data-page="${sourcePage}"]`);
-    if (active) { active.classList.add('page-highlight'); setTimeout(() => active.classList.remove('page-highlight'), 1500); }
+    if (active) {
+      active.classList.add('page-highlight');
+      setTimeout(() => active.classList.remove('page-highlight'), 1500);
+    }
   }, 100);
 }
 function jumpToFigPage() { renderPage(sourcePage); closeFig(); }
 
 // ==================== 拖拽移动 ====================
-function initDrag() {
+(function() {
   const handle = document.getElementById('fig-drag-handle');
   const modal  = document.getElementById('fig-modal');
   let drag = false, ox = 0, oy = 0;
+
   handle.addEventListener('mousedown', (e) => {
     if (e.target.tagName === 'BUTTON') return;
     drag = true;
@@ -697,7 +1068,6 @@ function initDrag() {
     modal.style.transform = 'none';
     e.preventDefault();
   });
-  // 触摸支持
   handle.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
     drag = true;
@@ -722,13 +1092,14 @@ function initDrag() {
   }, {passive:true});
   document.addEventListener('mouseup', () => drag = false);
   document.addEventListener('touchend', () => drag = false);
-}
+})();
 
 // ==================== 缩放窗口 ====================
-function initResize() {
+(function() {
   const handle = document.getElementById('fig-resize-handle');
   const modal  = document.getElementById('fig-modal');
   let res = false, sx = 0, sy = 0, sw = 0, sh = 0;
+
   handle.addEventListener('mousedown', (e) => {
     res = true; sx = e.clientX; sy = e.clientY;
     sw = modal.offsetWidth; sh = modal.offsetHeight;
@@ -752,20 +1123,16 @@ function initResize() {
   }, {passive:true});
   document.addEventListener('mouseup', () => res = false);
   document.addEventListener('touchend', () => res = false);
-}
+})();
 
 // ==================== 滚轮缩放图片 ====================
-function initWheel() {
-  const body = document.getElementById('fig-body');
-  body.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    if (e.deltaY < 0) imgZoomIn(); else imgZoomOut();
-  }, {passive:false});
-}
+document.getElementById('fig-body').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (e.deltaY < 0) imgZoomIn(); else imgZoomOut();
+}, {passive:false});
 
 // ==================== 移动端 ====================
 function initMobile() {
-  // 键盘快捷键
   document.addEventListener('keydown', (e) => {
     const ov = document.getElementById('fig-overlay');
     if (!ov.classList.contains('show')) return;
@@ -775,26 +1142,48 @@ function initMobile() {
   });
 }
 function switchFig(dir) {
-  const idx = figList.findIndex(f => f.num === getCurrentFigNum());
+  const idx = figList.findIndex(f => f.num === getCurrentActiveFig());
   const next = figList[idx + dir] || figList[idx - dir] || figList[0];
-  if (next) renderFigPage(next.num, figMap[next.num]);
+  if (next) showFigModal(next.num, figMap[next.num]);
 }
-function getCurrentFigNum() {
+function getCurrentActiveFig() {
   const tabs = document.querySelectorAll('.fig-tab');
   for (const t of tabs) if (t.classList.contains('active')) return t.textContent.replace('SHEET ','');
   return figList[0]?.num || '1';
 }
 let mobileNavVisible = false;
 function toggleMobileNav() {
-  const nav = document.getElementById('page-nav');
   mobileNavVisible = !mobileNavVisible;
-  nav.style.display = mobileNavVisible ? 'flex' : 'none';
+  document.getElementById('page-nav').style.display = mobileNavVisible ? 'flex' : 'none';
 }
+
+// ==================== 导航 ====================
+function buildPageNav() {
+  const list = document.getElementById('page-list');
+  list.innerHTML = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const isFig = Object.values(figMap).includes(i);
+    const div = document.createElement('div');
+    div.className = 'page-item' + (isFig ? ' fig-page' : '');
+    div.dataset.page = i;
+    div.innerHTML = `<span>${isFig ? '📊' : '📄'}</span><span>第 ${i} 页</span><span class="page-num">${i}</span>`;
+    div.onclick = () => renderPage(i);
+    list.appendChild(div);
+  }
+}
+function prevPage() { renderPage(currentPage - 1); }
+function nextPage() { renderPage(currentPage + 1); }
+function goToPage(n) { renderPage(Math.max(1, Math.min(totalPages, n || 1))); }
+function zoomIn()  { renderPage(currentPage); }
+function zoomOut() { renderPage(currentPage); }
 
 // ==================== 配置面板 ====================
 function openConfig() {
   document.getElementById('cfg-doc-id').value = document.getElementById('doc-name').textContent || '';
   document.getElementById('cfg-total-pages').value = totalPages || '';
+  document.getElementById('kw-figure').value = keywords[0] || 'Figure';
+  document.getElementById('kw-sheet').value = keywords[1] || 'SHEET';
+  document.getElementById('kw-chi').value = keywords[2] || '图';
   renderFigMapList();
   document.getElementById('config-panel').classList.remove('hidden');
 }
@@ -803,8 +1192,7 @@ function renderFigMapList() {
   const list = document.getElementById('fig-map-list');
   list.innerHTML = '';
   if (figList.length === 0) {
-    // 默认3个
-    ['1','2','3'].forEach(n => addFigRow(n, 10 + parseInt(n)));
+    for (let i = 1; i <= 3; i++) addFigRow(String(i), totalPages - 3 + i + 1);
   } else {
     figList.forEach(item => addFigRow(item.num, item.page));
   }
@@ -815,22 +1203,21 @@ function addFigRow(num, page) {
   row.className = 'config-figure-row';
   row.innerHTML = `
     <span style="color:var(--text2);font-size:12px;">SHEET</span>
-    <input type="number" id="fig-num-${num}" value="${num}" min="1" placeholder="编号" onchange="syncFromRow(this)">
+    <input type="number" value="${num}" min="1" placeholder="编号" onchange="rebuildFigList()">
     <span style="color:var(--text2);font-size:12px;">= 第</span>
-    <input type="number" id="fig-page-${num}" value="${page}" min="1" max="${totalPages}" placeholder="PDF页">
+    <input type="number" value="${page}" min="1" max="${totalPages}" placeholder="页码" onchange="rebuildFigList()">
     <span style="color:var(--text2);font-size:12px;">页</span>
-    <button class="del-btn" onclick="this.parentElement.remove();rebuildFigList()">✕</button>
+    <button class="del-btn" onclick="this.closest('.config-figure-row').remove();rebuildFigList()">✕</button>
   `;
   list.appendChild(row);
 }
-function syncFromRow(el) { rebuildFigList(); }
 function addFigMap() {
-  const next = (figList.length + 1).toString();
-  addFigRow(next, 10 + figList.length);
+  const next = String(figList.length + 1);
+  addFigRow(next, totalPages || 10);
   rebuildFigList();
 }
 function rebuildFigList() {
-  const rows = document.querySelectorAll('.config-figure-row');
+  const rows = document.querySelectorAll('#fig-map-list .config-figure-row');
   figList = [];
   figMap  = {};
   rows.forEach(row => {
@@ -845,35 +1232,30 @@ function rebuildFigList() {
 }
 function applyConfig() {
   rebuildFigList();
+  // 更新关键词
+  const kw1 = document.getElementById('kw-figure').value.trim();
+  const kw2 = document.getElementById('kw-sheet').value.trim();
+  const kw3 = document.getElementById('kw-chi').value.trim();
+  keywords = [kw1, kw2, kw3].filter(Boolean);
+  // 清空文本缓存，强制重新提取
+  pageTextCache = {};
   if (pdfDoc) { buildPageNav(); renderPage(currentPage); }
   closeConfig();
-  toast('配置已应用');
+  toast('配置已应用（可点击工具栏「🖼️ 提取图片」识别引用热区）');
 }
 function saveConfig() {
   rebuildFigList();
   const params = new URLSearchParams();
   params.set('doc', document.getElementById('cfg-doc-id').value || 'PDF');
   params.set('figs', JSON.stringify(figList));
+  params.set('kws', JSON.stringify(keywords));
   const url = location.origin + location.pathname + '?' + params.toString();
   navigator.clipboard.writeText(url).then(() => toast('链接已复制到剪贴板！'));
-}
-function loadFromShare() {
-  const p = new URLSearchParams(location.search);
-  const figs = p.get('figs');
-  if (figs) {
-    try {
-      figList = JSON.parse(figs);
-      figMap  = {};
-      figList.forEach(item => figMap[item.num] = item.page);
-      document.getElementById('cfg-doc-id').value = p.get('doc') || '';
-      renderFigMapList();
-      toast('已从 URL 加载配置');
-    } catch(e) { toast('URL 参数解析失败'); }
-  } else { toast('当前 URL 无分享参数'); }
 }
 function loadFromURL() {
   const p = new URLSearchParams(location.search);
   const figs = p.get('figs');
+  const kws  = p.get('kws');
   if (figs) {
     try {
       figList = JSON.parse(figs);
@@ -882,28 +1264,44 @@ function loadFromURL() {
       document.getElementById('cfg-doc-id').value = p.get('doc') || '';
     } catch(e) {}
   }
+  if (kws) {
+    try { keywords = JSON.parse(kws); } catch(e) {}
+  }
+}
+function loadFromShare() {
+  loadFromURL();
+  renderFigMapList();
+  toast('已从 URL 加载配置');
 }
 
-// ==================== 自动推断图例页（末页为图例） ====================
+// ==================== 自动推断图例页 ====================
 function inferFigMap() {
-  // 简单策略：最后一页 = SHEET 1，倒数第二 = SHEET 2
   figList = [];
   figMap  = {};
   if (totalPages >= 3) {
-    figList.push({num:'1', page:totalPages});
-    figMap['1'] = totalPages;
-    if (totalPages >= 2) { figList.push({num:'2', page:totalPages-1}); figMap['2'] = totalPages-1; }
+    for (let i = 0; i < 3; i++) {
+      const num = String(i + 1);
+      const pg  = totalPages - 2 + i;
+      figList.push({num, page:pg});
+      figMap[num] = pg;
+    }
   } else if (totalPages === 1) {
     figList.push({num:'1', page:1}); figMap['1'] = 1;
   }
 }
 
+function setMode(m) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.textContent.includes(m === 'view' ? '阅览' : '配置')));
+  if (m === 'config') openConfig();
+  else closeConfig();
+}
+
 // ==================== Toast ====================
-function toast(msg) {
+function toast(msg, type='', duration=2500) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => el.classList.remove('show'), duration);
 }
 
 // ==================== 启动 ====================
